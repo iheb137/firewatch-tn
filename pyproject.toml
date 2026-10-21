@@ -1,0 +1,24 @@
+[project]
+name = "firewatch-tn"
+version = "0.1.0"
+description = "Prédiction de propagation et cartographie des incendies de forêt en Tunisie"
+requires-python = ">=3.10"
+authors = [{ name = "Iheb Eddine Saafi" }, { name = "Arbi Hazbri" }]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = ["web", "ml/notebooks"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "N", "SIM"]
+ignore = ["N812", "E731", "B008", "B905"]  # B008 : idiome FastAPI File(...)
+
+[tool.ruff.lint.isort]
+known-first-party = ["ml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["slow: entraînements de fumée (≈ 1 min)"]
+filterwarnings = ["ignore::DeprecationWarning", "ignore::UserWarning"]
+addopts = "-p no:cacheprovider"

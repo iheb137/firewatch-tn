@@ -1,0 +1,31 @@
+# Données et sorties (versionnées avec DVC, jamais avec git)
+data/raw/
+data/processed/
+data/synthetic/
+runs/
+models/
+mlruns/
+reports/
+*.tfrecord
+*.hdf5
+*.h5
+*.keras
+*.pt
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Node
+web/node_modules/
+web/dist/
+
+# Divers
+.env
+.DS_Store
+.ipynb_checkpoints/
+kaggle.json

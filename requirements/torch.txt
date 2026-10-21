@@ -1,0 +1,7 @@
+# Module B — PyTorch (CPU en CI : --index-url https://download.pytorch.org/whl/cpu)
+torch>=2.4
+segmentation-models-pytorch>=0.4
+h5py>=3.10
+hdf5plugin>=4.4
+numpy>=1.26
+pyyaml>=6.0

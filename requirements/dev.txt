@@ -1,0 +1,6 @@
+pytest>=8.0
+ruff>=0.6
+pre-commit>=3.7
+mlflow-skinny>=2.16
+huggingface_hub>=0.25
+kaggle>=1.6

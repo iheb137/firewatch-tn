@@ -1,0 +1,6 @@
+tensorflow-cpu>=2.18,<2.22
+numpy>=1.26
+pyyaml>=6.0
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pydantic>=2.8

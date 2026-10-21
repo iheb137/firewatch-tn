@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install ruff
+      - run: ruff check .
+
+  test-spread-tf:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11", cache: pip }
+      - run: pip install tensorflow-cpu pyyaml numpy pytest
+      - run: pip install fastapi httpx
+      - run: pytest tests/spread_tf tests/api/test_spread_service.py -q
+        env: { TF_CPP_MIN_LOG_LEVEL: "3" }
+
+  test-burn-torch:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11", cache: pip }
+      - run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - run: >
+          pip install segmentation-models-pytorch h5py hdf5plugin pyyaml numpy pytest
+          pillow fastapi httpx python-multipart
+      - run: pytest tests/burn_torch tests/api/test_burn_service.py -q
+
+  test-gateway:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11", cache: pip }
+      - run: pip install fastapi httpx python-multipart pytest
+      - run: pytest tests/api/test_gateway.py -q
+
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: [test-spread-tf, test-burn-torch, test-gateway]
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose -f deploy/docker-compose.yml build api spread-service burn-service

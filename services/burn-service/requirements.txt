@@ -1,0 +1,9 @@
+segmentation-models-pytorch>=0.4
+h5py>=3.10
+hdf5plugin>=4.4
+numpy>=1.26
+pillow>=10.0
+pyyaml>=6.0
+fastapi>=0.115
+uvicorn[standard]>=0.30
+python-multipart>=0.0.9

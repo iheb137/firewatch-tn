@@ -1,0 +1,10 @@
+.git
+.venv
+data
+runs
+models
+mlruns
+reports
+web/node_modules
+**/__pycache__
+**/*.pyc

@@ -1,0 +1,33 @@
+# Module B — segmentation des surfaces brûlées (PyTorch)
+# Surcharge : --set train.epochs=5 split.test_fold=2
+
+seed: 42
+
+data:
+  h5_path: data/raw/cabuar/512x512.hdf5
+  mode: pre_post          # pre_post (27 canaux) | post (13 canaux, plus de patchs)
+  crop: 256               # recadrage aléatoire à l'entraînement (null = 512)
+  augment: true
+
+split:                    # validation croisée sur les 5 folds de CaBuAr
+  test_fold: 0
+  val_fold: 1             # les 3 folds restants servent à l'entraînement
+
+model:
+  arch: unet              # unet | segformer
+  encoder: resnet34
+  encoder_weights: imagenet
+
+loss:
+  dice_weight: 1.0
+  focal_weight: 1.0
+
+train:
+  epochs: 50
+  batch_size: 8
+  learning_rate: 3.0e-4
+  weight_decay: 1.0e-4
+  early_stopping_patience: 8
+  num_workers: 4
+  amp: true               # précision mixte si GPU CUDA disponible
+  output_dir: runs/burn_torch
