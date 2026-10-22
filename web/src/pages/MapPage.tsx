@@ -22,11 +22,13 @@ export default function MapPage() {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const [terrain, setTerrain] = useState(true);
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
 
   useEffect(() => {
     if (!container.current) return;
-    const m = new maplibregl.Map({
+    let m: maplibregl.Map;
+    try {
+      m = new maplibregl.Map({
       container: container.current,
       style: STYLE_URL,
       center: [8.95, 36.62],
@@ -35,25 +37,28 @@ export default function MapPage() {
       bearing: -18,
       maxPitch: 75,
       attributionControl: { compact: true },
-    });
+      });
+    } catch (e) {
+      setFailed(`La carte 3D nécessite WebGL : ${(e as Error).message}`);
+      return;
+    }
     map.current = m;
     m.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
     m.on("error", (e) => {
-      if (String(e.error?.message ?? "").match(/Failed to fetch|NetworkError|style/i)) setFailed(true);
+      const msg = String(e.error?.message ?? "");
+      if (msg.match(/Failed to fetch|NetworkError|style/i)) {
+        setFailed("Les tuiles viennent de CARTO et d'AWS : vérifiez la connexion Internet, puis rechargez la page.");
+      }
     });
     m.on("load", () => {
-      m.addSource("dem", {
-        type: "raster-dem",
-        tiles: [DEM_TILES],
-        tileSize: 256,
-        encoding: "terrarium",
-        maxzoom: 13,
-        attribution: "Relief : AWS Terrain Tiles (Mapzen)",
-      });
+      const dem = { type: "raster-dem" as const, tiles: [DEM_TILES], tileSize: 256,
+                    encoding: "terrarium" as const, maxzoom: 13 };
+      m.addSource("dem", { ...dem, attribution: "Relief : AWS Terrain Tiles (Mapzen)" });
+      m.addSource("dem-shade", dem);
       m.addLayer({
         id: "hillshade",
         type: "hillshade",
-        source: "dem",
+        source: "dem-shade",
         paint: {
           "hillshade-shadow-color": "#07110e",
           "hillshade-highlight-color": "#3d5a4c",
@@ -89,7 +94,10 @@ export default function MapPage() {
 
   return (
     <div className="relative h-full min-h-[560px]">
-      <div ref={container} className="absolute inset-0" aria-label="Carte du Nord-Ouest tunisien" role="region" />
+      {/* MapLibre impose position:relative sur son conteneur : c'est le parent qui est absolu. */}
+      <div className="absolute inset-0">
+        <div ref={container} className="h-full w-full" aria-label="Carte du Nord-Ouest tunisien" role="region" />
+      </div>
       <aside className="pointer-events-none absolute inset-x-3 bottom-3 md:inset-x-auto md:left-6 md:top-6 md:bottom-auto md:w-[360px]">
         <div className="pointer-events-auto rounded-2xl border border-rule bg-night/90 p-5 backdrop-blur">
           <h1 className="display text-2xl">Kroumirie et Mogods</h1>
@@ -124,9 +132,7 @@ export default function MapPage() {
         </div>
         {failed && (
           <div className="pointer-events-auto mt-3">
-            <ErrorNote title="Le fond de carte n'a pas pu être chargé">
-              Les tuiles viennent de CARTO et d'AWS : vérifiez la connexion Internet, puis rechargez la page.
-            </ErrorNote>
+            <ErrorNote title="Le fond de carte n'a pas pu être chargé">{failed}</ErrorNote>
           </div>
         )}
       </aside>
