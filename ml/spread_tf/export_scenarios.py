@@ -44,6 +44,9 @@ def main() -> None:
     p.add_argument("--split", default="test", choices=["train", "eval", "test"])
     p.add_argument("--n", type=int, default=12)
     p.add_argument("--min-fire-today", type=int, default=5)
+    p.add_argument("--min-gap", type=int, default=60,
+                   help="écart minimal d'index entre deux tuiles retenues : les tuiles d'un même "
+                        "incendie se suivent dans les TFRecords")
     p.add_argument("--source", default="NDWS — Google Research (USA, 2012-2020)")
     p.add_argument("--out", default="data/scenarios/spread/ndws_test.json")
     a = p.parse_args()
@@ -58,8 +61,16 @@ def main() -> None:
         candidates.append((new_fire, idx, {k: v.numpy() for k, v in ex.items()}))
     candidates.sort(key=lambda c: -c[0])
 
+    # Diversité : au plus une tuile par incendie (index voisins = même événement).
+    chosen: list[tuple[int, int, dict]] = []
+    for cand in candidates:
+        if all(abs(cand[1] - c[1]) >= a.min_gap for c in chosen):
+            chosen.append(cand)
+        if len(chosen) >= a.n:
+            break
+
     scenarios = []
-    for _new_fire, idx, ex in candidates[: a.n]:
+    for _new_fire, idx, ex in chosen:
         features = {k: np.round(ex[k].astype(np.float64), DECIMALS[k]).tolist()
                     for k in INPUT_FEATURES}
         scenarios.append({
