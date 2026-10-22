@@ -98,7 +98,7 @@ def train(cfg: dict) -> Path:
                 scaler.scale(loss).backward()
                 scaler.step(opt)
                 scaler.update()
-                total += float(loss) * x.size(0)
+                total += loss.item() * x.size(0)
                 n += x.size(0)
             sched.step()
             val = run_eval(model, val_dl, device)

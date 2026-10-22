@@ -1,10 +1,13 @@
-FROM python:3.11-slim
-ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+FROM python:3.12-slim
+# Connexions lentes : délai et relances élevés ; le cache pip survit aux builds ratés
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
+    PIP_DEFAULT_TIMEOUT=300 PIP_RETRIES=10
 WORKDIR /srv
 COPY services/burn-service/requirements.txt /tmp/req.txt
-# Roue PyTorch CPU : image ~4x plus légère que la version CUDA
-RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu \
- && pip install --no-cache-dir -r /tmp/req.txt
+# torch ET torchvision depuis le même index CPU
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install torch==2.14.1 torchvision==0.29.1 --index-url https://download.pytorch.org/whl/cpu
+RUN --mount=type=cache,target=/root/.cache/pip pip install -r /tmp/req.txt
 COPY ml/__init__.py ml/__init__.py
 COPY ml/common ml/common
 COPY ml/burn_torch ml/burn_torch

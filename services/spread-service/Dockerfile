@@ -1,9 +1,9 @@
 # Contexte de build : racine du dépôt (le code ml/ est partagé avec l'entraînement)
-FROM python:3.11-slim AS base
-ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 TF_CPP_MIN_LOG_LEVEL=2
+FROM python:3.12-slim AS base
+ENV PIP_DEFAULT_TIMEOUT=300 PIP_RETRIES=10 PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 TF_CPP_MIN_LOG_LEVEL=2
 WORKDIR /srv
 COPY services/spread-service/requirements.txt /tmp/req.txt
-RUN pip install --no-cache-dir -r /tmp/req.txt
+RUN --mount=type=cache,target=/root/.cache/pip pip install -r /tmp/req.txt
 COPY ml/__init__.py ml/__init__.py
 COPY ml/common ml/common
 COPY ml/spread_tf ml/spread_tf

@@ -1,8 +1,8 @@
-FROM python:3.11-slim
-ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+FROM python:3.12-slim
+ENV PIP_DEFAULT_TIMEOUT=300 PIP_RETRIES=10 PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 WORKDIR /srv
 COPY services/api/requirements.txt /tmp/req.txt
-RUN pip install --no-cache-dir -r /tmp/req.txt
+RUN --mount=type=cache,target=/root/.cache/pip pip install -r /tmp/req.txt
 COPY services/api/app app
 RUN useradd --create-home --uid 10001 app
 USER app

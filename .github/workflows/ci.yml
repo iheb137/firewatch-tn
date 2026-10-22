@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
-        with: { python-version: "3.11" }
+        with: { python-version: "3.12" }
       - run: pip install ruff
       - run: ruff check .
 
@@ -25,7 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
-        with: { python-version: "3.11", cache: pip }
+        with: { python-version: "3.12", cache: pip }
       - run: pip install tensorflow-cpu pyyaml numpy pytest
       - run: pip install fastapi httpx
       - run: pytest tests/spread_tf tests/api/test_spread_service.py -q
@@ -37,8 +37,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
-        with: { python-version: "3.11", cache: pip }
-      - run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+        with: { python-version: "3.12", cache: pip }
+      - run: pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
       - run: >
           pip install segmentation-models-pytorch h5py hdf5plugin pyyaml numpy pytest
           pillow fastapi httpx python-multipart
@@ -50,7 +50,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
-        with: { python-version: "3.11", cache: pip }
+        with: { python-version: "3.12", cache: pip }
       - run: pip install fastapi httpx python-multipart pytest
       - run: pytest tests/api/test_gateway.py -q
 
