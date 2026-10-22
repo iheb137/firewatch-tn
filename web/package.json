@@ -1,0 +1,28 @@
+{
+  "name": "firewatch-tn-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@fontsource-variable/archivo": "5.3.0",
+    "lucide-react": "0.511.0",
+    "maplibre-gl": "5.24.0",
+    "react": "19.1.10",
+    "react-dom": "19.1.10"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.1.18",
+    "@types/react": "~19.1.0",
+    "@types/react-dom": "~19.1.0",
+    "@vitejs/plugin-react": "4.7.0",
+    "tailwindcss": "4.1.18",
+    "typescript": "5.8.3",
+    "vite": "6.4.5"
+  }
+}

@@ -48,12 +48,34 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title="FireWatch TN — burn-service", version="0.1.0", lifespan=lifespan)
 
 
-def mask_to_png_b64(mask: np.ndarray) -> str:
+def _png_b64(img, mode: str) -> str:
     from PIL import Image
 
     buf = io.BytesIO()
-    Image.fromarray((mask * 255).astype(np.uint8), mode="L").save(buf, format="PNG")
+    Image.fromarray(img, mode=mode).save(buf, format="PNG", optimize=True)
     return base64.b64encode(buf.getvalue()).decode()
+
+
+def mask_to_png_b64(mask: np.ndarray) -> str:
+    return _png_b64((mask * 255).astype(np.uint8), "L")
+
+
+def rgb_preview(img: np.ndarray, scale: float | None = None) -> tuple[str, float]:
+    """Couleurs naturelles B04/B03/B02, étirées au 99e centile (partagé avant/après)."""
+    rgb = img[..., [3, 2, 1]].astype(np.float32)
+    if scale is None:
+        valid = rgb[rgb.max(axis=-1) > 0]
+        scale = float(np.percentile(valid, 99)) if valid.size else 1.0
+    out = np.clip(rgb / max(scale, 1.0), 0, 1) ** 0.8
+    return _png_b64((out * 255).astype(np.uint8), "RGB"), scale
+
+
+def overlay_png_b64(prob: np.ndarray, threshold: float) -> str:
+    """Calque RGBA : rouge braise, opacité croissante avec la probabilité."""
+    alpha = np.where(prob >= threshold, 90 + 140 * prob, 0).astype(np.uint8)
+    rgba = np.zeros((*prob.shape, 4), np.uint8)
+    rgba[..., 0], rgba[..., 1], rgba[..., 2], rgba[..., 3] = 239, 68, 35, alpha
+    return _png_b64(rgba, "RGBA")
 
 
 @app.get("/health")
@@ -72,7 +94,8 @@ def model_info():
 
 
 @app.post("/segment")
-async def segment(file: UploadFile = File(...), threshold: float = 0.5):
+async def segment(file: UploadFile = File(...), threshold: float = 0.5,
+                  previews: bool = False):
     if state["model"] is None:
         raise HTTPException(503, "Aucun modèle chargé")
     data = await file.read(MAX_UPLOAD_BYTES + 1)
@@ -82,6 +105,7 @@ async def segment(file: UploadFile = File(...), threshold: float = 0.5):
         arrays = np.load(io.BytesIO(data), allow_pickle=False)
         post = arrays["post"]
         pre = arrays["pre"] if "pre" in arrays.files else None
+        truth = arrays["mask"] if "mask" in arrays.files else None
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(400, f"Fichier .npz invalide : {exc}") from exc
 
@@ -102,10 +126,28 @@ async def segment(file: UploadFile = File(...), threshold: float = 0.5):
     with torch.no_grad():
         prob = torch.sigmoid(state["model"](x))[0, 0].numpy()
     mask = (prob >= threshold).astype(np.uint8)
-    return {
+    result = {
         "burned_area_ha": round(float(mask.sum()) * PIXEL_AREA_HA, 2),
         "burned_fraction": round(float(mask.mean()), 4),
         "threshold": threshold,
         "mask_png_base64": mask_to_png_b64(mask),
         "shape": [h, w],
     }
+    if truth is not None:  # vérité terrain fournie (échantillons de démo) : on note le résultat
+        t = truth.reshape(h, w) > 0
+        m = mask.astype(bool)
+        tp, fp, fn = int((m & t).sum()), int((m & ~t).sum()), int((~m & t).sum())
+        result["truth"] = {
+            "burned_area_ha": round(float(t.sum()) * PIXEL_AREA_HA, 2),
+            "iou": round(tp / max(tp + fp + fn, 1), 4),
+            "precision": round(tp / max(tp + fp, 1), 4),
+            "recall": round(tp / max(tp + fn, 1), 4),
+            "mask_png_base64": mask_to_png_b64(t.astype(np.uint8)),
+        }
+    if previews:
+        post_png, scale = rgb_preview(post)
+        result["post_rgb_png_base64"] = post_png
+        if pre is not None:
+            result["pre_rgb_png_base64"] = rgb_preview(pre, scale)[0]
+        result["overlay_png_base64"] = overlay_png_b64(prob, threshold)
+    return result

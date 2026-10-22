@@ -38,3 +38,18 @@ def test_burn_segment(burn_client):
     assert r.json()["shape"] == [64, 64] and r.json()["burned_area_ha"] >= 0
     r = burn_client.post("/segment", files={"file": ("x.npz", npz(post=img))})
     assert r.status_code == 400  # image avant manquante
+
+
+def test_burn_segment_previews_and_truth(burn_client):
+    rng = np.random.default_rng(1)
+    img = rng.integers(0, 5000, (64, 64, 12), dtype=np.uint16)
+    mask = np.zeros((64, 64, 1), np.uint8)
+    mask[:32] = 1
+    r = burn_client.post("/segment", params={"previews": "true"},
+                         files={"file": ("x.npz", npz(pre=img, post=img, mask=mask))})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    for k in ("pre_rgb_png_base64", "post_rgb_png_base64", "overlay_png_base64"):
+        assert len(body[k]) > 100
+    assert body["truth"]["burned_area_ha"] == 32 * 64 * 0.04
+    assert 0 <= body["truth"]["iou"] <= 1

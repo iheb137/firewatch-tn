@@ -8,8 +8,15 @@ services:
     environment:
       SPREAD_SERVICE_URL: http://spread-service:8000
       BURN_SERVICE_URL: http://burn-service:8000
-      CORS_ORIGINS: http://localhost:5173
+      CORS_ORIGINS: http://localhost:5173,http://localhost:3000
+      SCENARIOS_DIR: /data/scenarios
+    volumes: ["../data/scenarios:/data/scenarios:ro"]
     depends_on: [spread-service, burn-service]
+
+  web:
+    build: { context: ../web }
+    ports: ["3000:80"]
+    depends_on: [api]
 
   spread-service:
     build: { context: .., dockerfile: services/spread-service/Dockerfile }

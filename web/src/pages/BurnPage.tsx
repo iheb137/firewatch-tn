@@ -1,0 +1,215 @@
+import { Upload } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { api, png, type BurnResult, type BurnSample } from "../api";
+import { ErrorNote, Loading, Metric, PageHeader, Panel, Toggle } from "../components/ui";
+import { fmt, pct } from "../lib/grid";
+
+/** Transforme un masque PNG blanc/noir en calque coloré semi-transparent. */
+function useTintedMask(b64: string | undefined, rgb: [number, number, number], alpha: number) {
+  const [url, setUrl] = useState<string>();
+  useEffect(() => {
+    if (!b64) {
+      setUrl(undefined);
+      return;
+    }
+    const img = new Image();
+    img.onload = () => {
+      const cv = document.createElement("canvas");
+      cv.width = img.width;
+      cv.height = img.height;
+      const ctx = cv.getContext("2d")!;
+      ctx.drawImage(img, 0, 0);
+      const d = ctx.getImageData(0, 0, cv.width, cv.height);
+      for (let i = 0; i < d.data.length; i += 4) {
+        const on = d.data[i] > 127;
+        d.data[i] = rgb[0];
+        d.data[i + 1] = rgb[1];
+        d.data[i + 2] = rgb[2];
+        d.data[i + 3] = on ? alpha : 0;
+      }
+      ctx.putImageData(d, 0, 0);
+      setUrl(cv.toDataURL());
+    };
+    img.src = png(b64)!;
+  }, [b64, rgb, alpha]);
+  return url;
+}
+
+const TRUTH_RGB: [number, number, number] = [184, 212, 168];
+
+export default function BurnPage() {
+  const [samples, setSamples] = useState<BurnSample[] | null>(null);
+  const [source, setSource] = useState("");
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [result, setResult] = useState<BurnResult | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [swipe, setSwipe] = useState(50);
+  const [showPred, setShowPred] = useState(true);
+  const [showTruth, setShowTruth] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const truthLayer = useTintedMask(result?.truth?.mask_png_base64, TRUTH_RGB, 150);
+
+  useEffect(() => {
+    api.burnSamples()
+      .then((r) => {
+        setSamples(r.samples);
+        setSource(r.source);
+        if (r.samples.length) setSelected(r.samples[0].id);
+      })
+      .catch((e: Error) => setLoadError(e.message));
+  }, []);
+
+  useEffect(() => {
+    if (!selected) return;
+    setBusy(true);
+    setError(null);
+    api.burnSample(selected)
+      .then(setResult)
+      .catch((e: Error) => setError(e.message))
+      .finally(() => setBusy(false));
+  }, [selected]);
+
+  const upload = async (file: File) => {
+    setBusy(true);
+    setError(null);
+    setSelected(null);
+    try {
+      setResult(await api.burnUpload(file));
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const pre = png(result?.pre_rgb_png_base64);
+  const post = png(result?.post_rgb_png_base64);
+  const truth = result?.truth;
+  const areaError = truth ? Math.abs(result!.burned_area_ha - truth.burned_area_ha) / Math.max(truth.burned_area_ha, 1e-6) : null;
+
+  return (
+    <div className="p-6 md:p-10">
+      <PageHeader title="Combien d'hectares ont brûlé ?">
+        Le réseau PyTorch compare deux images satellite Sentinel-2, avant et après l'incendie, et
+        délimite la zone brûlée pixel par pixel (20 m, soit 0,04 ha par pixel).
+      </PageHeader>
+
+      {loadError && (
+        <ErrorNote title="La passerelle API ne répond pas">Détail : {loadError}</ErrorNote>
+      )}
+
+      <div className="grid gap-6 xl:grid-cols-[220px_minmax(0,640px)_1fr]">
+        <Panel title="Images" className="order-2 xl:order-none">
+          {!samples && !loadError && <Loading />}
+          {samples?.length === 0 && (
+            <p className="text-sm text-lichen">
+              Aucun exemple installé. Lancez <code>make scenarios-synthetic</code> ou exportez des patchs
+              CaBuAr depuis Kaggle.
+            </p>
+          )}
+          <ul className="space-y-1">
+            {samples?.map((s) => (
+              <li key={s.id}>
+                <button
+                  type="button"
+                  onClick={() => setSelected(s.id)}
+                  aria-pressed={s.id === selected}
+                  className={`w-full rounded-lg px-2.5 py-2 text-left text-sm ${s.id === selected ? "bg-canopy-2" : "text-lichen hover:bg-canopy-2/60"}`}
+                >
+                  <span className="block font-medium text-paper">{s.id.replace(/^cabuar-/, "")}</span>
+                  <span className="tabular block text-xs">{fmt(s.burned_area_ha)} ha brûlés ({pct(s.burned_fraction)})</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+          {source && <p className="mt-3 border-t border-rule pt-3 text-xs text-moss">{source}</p>}
+          <div className="mt-4">
+            <input
+              ref={fileInput}
+              type="file"
+              accept=".npz"
+              className="sr-only"
+              onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])}
+            />
+            <button
+              type="button"
+              onClick={() => fileInput.current?.click()}
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-rule px-3 py-2 text-sm hover:bg-canopy-2"
+            >
+              <Upload size={16} aria-hidden /> Analyser un fichier .npz
+            </button>
+            <p className="mt-2 text-xs text-moss">Tableaux <code>pre</code> et <code>post</code> de forme (H, W, 12).</p>
+          </div>
+        </Panel>
+
+        <div className="order-1 xl:order-none">
+          <div className="relative aspect-square overflow-hidden rounded-xl border border-rule bg-canopy">
+            {busy && <div className="absolute inset-0 z-10 grid place-items-center bg-night/60"><Loading>Segmentation en cours…</Loading></div>}
+            {error && !busy && <div className="absolute inset-4 z-10"><ErrorNote title="L'analyse a échoué">{error}</ErrorNote></div>}
+            {post && (
+              <>
+                <img src={post} alt="Image après incendie" className="absolute inset-0 size-full object-cover" />
+                {pre && (
+                  <img
+                    src={pre}
+                    alt="Image avant incendie"
+                    className="absolute inset-0 size-full object-cover"
+                    style={{ clipPath: `inset(0 ${100 - swipe}% 0 0)` }}
+                  />
+                )}
+                {showPred && result?.overlay_png_base64 && (
+                  <img src={png(result.overlay_png_base64)} alt="" className="absolute inset-0 size-full object-cover"
+                    style={{ clipPath: `inset(0 0 0 ${pre ? swipe : 0}%)` }} />
+                )}
+                {showTruth && truthLayer && (
+                  <img src={truthLayer} alt="" className="absolute inset-0 size-full object-cover"
+                    style={{ clipPath: `inset(0 0 0 ${pre ? swipe : 0}%)` }} />
+                )}
+                {pre && (
+                  <div className="pointer-events-none absolute inset-y-0 w-0.5 bg-paper" style={{ left: `${swipe}%` }} aria-hidden>
+                    <span className="absolute left-1/2 top-3 -translate-x-1/2 whitespace-nowrap rounded bg-night/80 px-2 py-0.5 text-xs">
+                      avant | après
+                    </span>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+          {pre && (
+            <label className="mt-4 block text-sm text-lichen">
+              Glissez pour comparer avant et après
+              <input type="range" min={0} max={100} value={swipe} onChange={(e) => setSwipe(Number(e.target.value))} className="mt-1 w-full" />
+            </label>
+          )}
+          <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-xs text-lichen" aria-label="Légende">
+            <li className="flex items-center gap-2"><span className="size-3 rounded-sm bg-[#ef4423]/80" /> Zone brûlée prédite</li>
+            <li className="flex items-center gap-2"><span className="size-3 rounded-sm bg-sage/70" /> Zone brûlée réelle (CAL FIRE)</li>
+          </ul>
+        </div>
+
+        <div className="order-3 space-y-4 xl:order-none">
+          <Panel title="Surface brûlée">
+            {result ? (
+              <dl className="grid grid-cols-2 gap-3">
+                <Metric label="Estimée par le modèle" value={`${fmt(result.burned_area_ha)} ha`} tone="ember" />
+                {truth && <Metric label="Mesurée sur le terrain" value={`${fmt(truth.burned_area_ha)} ha`} tone="sage" />}
+                {areaError !== null && <Metric label="Écart de surface" value={pct(areaError, 1)} />}
+                {truth && <Metric label="IoU" value={pct(truth.iou)} hint={`précision ${pct(truth.precision)}, rappel ${pct(truth.recall)}`} />}
+              </dl>
+            ) : busy ? <Loading /> : <p className="text-sm text-lichen">Choisissez une image.</p>}
+          </Panel>
+          <Panel title="Affichage">
+            <Toggle checked={showPred} onChange={setShowPred}>Zone brûlée prédite</Toggle>
+            <Toggle checked={showTruth} onChange={setShowTruth}>Zone brûlée réelle</Toggle>
+          </Panel>
+          <p className="text-xs leading-relaxed text-moss">
+            Pour Melloula (juillet 2023), le même calcul sur des images Sentinel-2 de Tabarka
+            permettra de comparer l'estimation aux quelque 450 ha annoncés par les services forestiers.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}

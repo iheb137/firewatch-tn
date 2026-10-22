@@ -84,6 +84,29 @@ open http://localhost:8000/docs
 Pour suivre les entraînements dans MLflow : `export MLFLOW_TRACKING_URI=http://localhost:5000`.
 Sans cette variable, les scripts tournent normalement (Colab, Kaggle).
 
+## Interface (React)
+
+Quatre écrans : **Carte** (relief 3D du Nord-Ouest, MapLibre), **Propagation** (simulateur
+TensorFlow avec incertitude MC Dropout), **Surfaces brûlées** (comparateur avant/après,
+PyTorch) et **Modèles** (résultats comparés aux baselines).
+
+```bash
+make scenarios-synthetic          # ou les vrais scénarios exportés depuis Kaggle (ci-dessous)
+docker compose -f deploy/docker-compose.yml up -d --build web
+open http://localhost:3000
+```
+
+Développement à chaud (Node 20+) : `cd web && npm install && npm run dev` puis http://localhost:5173.
+
+**Scénarios réels** (depuis les notebooks Kaggle, une fois les données en place) :
+
+```bash
+python -m ml.spread_tf.export_scenarios --data-dir $DATA --out /kaggle/working/scenarios/spread/ndws_test.json
+python -m ml.burn_torch.export_samples --h5 $H5 --out /kaggle/working/scenarios/burn
+```
+
+Télécharger `scenarios/` et le placer dans `data/scenarios/` (la passerelle le lit au démarrage).
+
 ## Entraîner sur GPU gratuit
 
 Kaggle Notebooks (le dataset NDWS y est déjà monté) ou Google Colab :
@@ -104,7 +127,7 @@ ml/burn_torch/      Module B : dataset, indices, model, metrics, train, baseline
 services/           api, spread-service, burn-service (FastAPI)
 deploy/             docker-compose.yml (Kubernetes : sprint 6)
 tests/              pytest (synthétique), exécutés en CI
-web/                interface React (sprint 4)
+web/                interface React (Vite, TypeScript, Tailwind, MapLibre)
 docs/               cadrage, rapport
 ```
 

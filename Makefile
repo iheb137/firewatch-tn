@@ -1,7 +1,7 @@
 PY ?= python
 COMPOSE = docker compose -f deploy/docker-compose.yml
 
-.PHONY: help install-tf install-torch install-dev data-ndws data-cabuar synthetic eda \
+.PHONY: help install-tf install-torch install-dev data-ndws data-cabuar synthetic scenarios scenarios-synthetic eda \
         train-spread baseline-spread train-burn baseline-burn test test-fast lint up down
 
 help:  ## Affiche cette aide
@@ -18,6 +18,15 @@ data-ndws:  ## Télécharge Next Day Wildfire Spread (Kaggle)
 
 data-cabuar:  ## Télécharge CaBuAr (Hugging Face)
 	bash scripts/download_cabuar.sh data/raw/cabuar
+
+scenarios:  ## Scénarios de démo pour l'interface (depuis les vraies données si présentes)
+	$(PY) -m ml.spread_tf.export_scenarios --data-dir data/raw/ndws --out data/scenarios/spread/ndws_test.json
+	$(PY) -m ml.burn_torch.export_samples --h5 data/raw/cabuar/512x512.hdf5 --out data/scenarios/burn
+
+scenarios-synthetic: synthetic  ## Scénarios de démo synthétiques (sans télécharger les datasets)
+	$(PY) -m ml.spread_tf.export_scenarios --data-dir data/synthetic/ndws --source "Synthétique (démo)" --out data/scenarios/spread/synthetic.json
+	$(PY) -m ml.burn_torch.synthetic --out data/synthetic/cabuar_512.hdf5 --patches 15 --size 512
+	$(PY) -m ml.burn_torch.export_samples --h5 data/synthetic/cabuar_512.hdf5 --min-burned 0.01 --source "Synthétique (démo)" --out data/scenarios/burn
 
 synthetic:  ## Génère des données synthétiques au format réel (démo sans téléchargement)
 	$(PY) -m ml.spread_tf.synthetic --out data/synthetic/ndws

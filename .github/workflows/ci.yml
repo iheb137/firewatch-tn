@@ -54,9 +54,21 @@ jobs:
       - run: pip install fastapi httpx python-multipart pytest
       - run: pytest tests/api/test_gateway.py -q
 
-  docker-build:
+  web-build:
     runs-on: ubuntu-latest
-    needs: [test-spread-tf, test-burn-torch, test-gateway]
+    needs: lint
+    defaults:
+      run: { working-directory: web }
     steps:
       - uses: actions/checkout@v4
-      - run: docker compose -f deploy/docker-compose.yml build api spread-service burn-service
+      - uses: actions/setup-node@v4
+        with: { node-version: "22", cache: npm, cache-dependency-path: web/package-lock.json }
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
+
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: [test-spread-tf, test-burn-torch, test-gateway, web-build]
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose -f deploy/docker-compose.yml build api spread-service burn-service web

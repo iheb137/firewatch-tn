@@ -2,6 +2,7 @@
 data/raw/
 data/processed/
 data/synthetic/
+data/scenarios/
 runs/
 models/
 mlruns/
@@ -30,3 +31,4 @@ web/dist/
 .ipynb_checkpoints/
 kaggle.json
 *.log
+web/*.tsbuildinfo
