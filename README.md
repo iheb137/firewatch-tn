@@ -1,5 +1,7 @@
 # 🔥 FireWatch TN
 
+[![CI](https://github.com/iheb137/firewatch-tn/actions/workflows/ci.yml/badge.svg)](https://github.com/iheb137/firewatch-tn/actions/workflows/ci.yml)
+
 **Prédiction de la propagation et cartographie des incendies de forêt en Tunisie par réseaux de neurones.**
 
 Mini-projet deep learning, ING-5-GLSI-J-D, TEK-UP University.
@@ -87,7 +89,7 @@ Sans cette variable, les scripts tournent normalement (Colab, Kaggle).
 Kaggle Notebooks (le dataset NDWS y est déjà monté) ou Google Colab :
 
 ```python
-!git clone https://github.com/<vous>/firewatch-tn && cd firewatch-tn
+!git clone https://github.com/iheb137/firewatch-tn && cd firewatch-tn
 !pip install -q -r requirements/tf.txt
 !python -m ml.spread_tf.train --set data.data_dir=/kaggle/input/next-day-wildfire-spread train.mixed_precision=true
 ```
