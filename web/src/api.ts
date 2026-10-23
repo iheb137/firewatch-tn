@@ -31,6 +31,7 @@ export interface SpreadPrediction {
 export interface BurnSample {
   id: string;
   file: string;
+  fire?: string;
   burned_fraction: number;
   burned_area_ha: number;
   shape: [number, number];

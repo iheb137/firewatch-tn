@@ -70,9 +70,21 @@ def rgb_preview(img: np.ndarray, scale: float | None = None) -> tuple[str, float
     return _png_b64((out * 255).astype(np.uint8), "RGB"), scale
 
 
+def mask_edges(mask: np.ndarray, width: int = 2) -> np.ndarray:
+    """Pixels du masque touchant l'extérieur (contour d'environ `width` pixels)."""
+    inner = mask.copy()
+    for _ in range(width):
+        p = np.pad(inner, 1, constant_values=False)
+        inner = inner & p[:-2, 1:-1] & p[2:, 1:-1] & p[1:-1, :-2] & p[1:-1, 2:]
+    return mask & ~inner
+
+
 def overlay_png_b64(prob: np.ndarray, threshold: float) -> str:
-    """Calque RGBA : rouge braise, opacité croissante avec la probabilité."""
-    alpha = np.where(prob >= threshold, 90 + 140 * prob, 0).astype(np.uint8)
+    """Calque RGBA : remplissage léger (le relief brûlé reste visible) et contour opaque."""
+    mask = prob >= threshold
+    alpha = np.where(mask, 70, 0)
+    alpha[mask_edges(mask)] = 255
+    alpha = alpha.astype(np.uint8)
     rgba = np.zeros((*prob.shape, 4), np.uint8)
     rgba[..., 0], rgba[..., 1], rgba[..., 2], rgba[..., 3] = 239, 68, 35, alpha
     return _png_b64(rgba, "RGBA")

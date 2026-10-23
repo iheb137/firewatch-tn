@@ -4,7 +4,8 @@
         --out data/scenarios/burn
 
 Critères : fold de test, image avant réellement disponible (pas un patch rempli de
-zéros) et surface brûlée partielle, pour que le contour du feu soit visible.
+zéros), surface brûlée partielle pour que le contour du feu soit visible, et un seul
+patch par incendie (--per-fire) pour montrer des feux différents.
 """
 
 from __future__ import annotations
@@ -24,6 +25,11 @@ def valid_fraction(img: np.ndarray) -> float:
     return float((img.max(axis=-1) > 0).mean())
 
 
+def fire_id(key: str) -> str:
+    """Les patchs d'un même incendie partagent la clé avant le dernier « _n »."""
+    return key.rsplit("_", 1)[0]
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -32,6 +38,8 @@ def main() -> None:
     p.add_argument("--n", type=int, default=4)
     p.add_argument("--min-burned", type=float, default=0.15)
     p.add_argument("--max-burned", type=float, default=0.75)
+    p.add_argument("--per-fire", type=int, default=1,
+                   help="patchs maximum par incendie (clé « <incendie>_<n> » dans le HDF5)")
     p.add_argument("--source", default="CaBuAr — Sentinel-2 L2A, Californie (CAL FIRE)")
     p.add_argument("--out", default="data/scenarios/burn")
     a = p.parse_args()
@@ -47,7 +55,11 @@ def main() -> None:
             if a.min_burned <= frac <= a.max_burned:
                 candidates.append((abs(frac - 0.45), key, frac))
         candidates.sort()
+        per_fire: dict[str, int] = {}
         for _, key, frac in candidates:
+            fire = fire_id(key)
+            if per_fire.get(fire, 0) >= a.per_fire:
+                continue
             grp = f[key]
             pre, post = grp["pre_fire"][...], grp["post_fire"][...]
             if valid_fraction(pre) < 0.98 or valid_fraction(post) < 0.98:
@@ -56,7 +68,9 @@ def main() -> None:
             mask = (grp["mask"][...] > 0).astype(np.uint8)
             name = f"cabuar-f{a.fold}-{key}"
             np.savez_compressed(os.path.join(a.out, f"{name}.npz"), pre=pre, post=post, mask=mask)
-            picked.append({"id": name, "file": f"{name}.npz", "burned_fraction": round(frac, 3),
+            per_fire[fire] = per_fire.get(fire, 0) + 1
+            picked.append({"id": name, "file": f"{name}.npz", "fire": fire,
+                           "burned_fraction": round(frac, 3),
                            "burned_area_ha": round(float(mask.sum()) * PIXEL_AREA_HA, 1),
                            "shape": list(post.shape[:2])})
             if len(picked) >= a.n:

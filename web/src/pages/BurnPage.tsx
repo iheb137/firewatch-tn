@@ -1,11 +1,11 @@
 import { Upload } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api, png, type BurnResult, type BurnSample } from "../api";
 import { ErrorNote, Loading, Metric, PageHeader, Panel, Toggle } from "../components/ui";
 import { fmt, pct } from "../lib/grid";
 
-/** Transforme un masque PNG blanc/noir en calque coloré semi-transparent. */
-function useTintedMask(b64: string | undefined, rgb: [number, number, number], alpha: number) {
+/** Transforme un masque PNG blanc/noir en calque : remplissage léger et contour opaque. */
+function useTintedMask(b64: string | undefined, rgb: [number, number, number], fillAlpha: number) {
   const [url, setUrl] = useState<string>();
   useEffect(() => {
     if (!b64) {
@@ -15,24 +15,54 @@ function useTintedMask(b64: string | undefined, rgb: [number, number, number], a
     const img = new Image();
     img.onload = () => {
       const cv = document.createElement("canvas");
-      cv.width = img.width;
-      cv.height = img.height;
+      const w = (cv.width = img.width);
+      const h = (cv.height = img.height);
       const ctx = cv.getContext("2d")!;
       ctx.drawImage(img, 0, 0);
-      const d = ctx.getImageData(0, 0, cv.width, cv.height);
-      for (let i = 0; i < d.data.length; i += 4) {
-        const on = d.data[i] > 127;
-        d.data[i] = rgb[0];
-        d.data[i + 1] = rgb[1];
-        d.data[i + 2] = rgb[2];
-        d.data[i + 3] = on ? alpha : 0;
+      const d = ctx.getImageData(0, 0, w, h);
+      const on = new Uint8Array(w * h);
+      for (let i = 0; i < w * h; i++) on[i] = d.data[i * 4] > 127 ? 1 : 0;
+      const R = 2; // épaisseur du contour, en pixels
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const i = y * w + x;
+          let edge = false;
+          if (on[i]) {
+            for (let k = 1; k <= R && !edge; k++) {
+              edge = x < k || y < k || x >= w - k || y >= h - k ||
+                !on[i - k] || !on[i + k] || !on[i - k * w] || !on[i + k * w];
+            }
+          }
+          d.data[i * 4] = rgb[0];
+          d.data[i * 4 + 1] = rgb[1];
+          d.data[i * 4 + 2] = rgb[2];
+          d.data[i * 4 + 3] = on[i] ? (edge ? 255 : fillAlpha) : 0;
+        }
       }
       ctx.putImageData(d, 0, 0);
       setUrl(cv.toDataURL());
     };
     img.src = png(b64)!;
-  }, [b64, rgb, alpha]);
+  }, [b64, rgb, fillAlpha]);
   return url;
+}
+
+/** « cabuar-f0-<incendie>_<n> » → « Incendie A », ou « Incendie A · zone n » si plusieurs zones. */
+function sampleLabels(samples: BurnSample[]): Map<string, string> {
+  const fireOf = (s: BurnSample) => s.fire ?? s.id.replace(/^cabuar-f\d+-/, "").replace(/_\d+$/, "");
+  const letters = new Map<string, string>();
+  const count = new Map<string, number>();
+  for (const s of samples) {
+    const f = fireOf(s);
+    if (!letters.has(f)) letters.set(f, String.fromCharCode(65 + (letters.size % 26)));
+    count.set(f, (count.get(f) ?? 0) + 1);
+  }
+  return new Map(samples.map((s) => {
+    const f = fireOf(s);
+    const zone = s.id.match(/_(\d+)$/)?.[1];
+    const base = `Incendie ${letters.get(f)}`;
+    return [s.id, count.get(f)! > 1 && zone ? `${base} · zone ${zone}` : base];
+  }));
 }
 
 const TRUTH_RGB: [number, number, number] = [184, 212, 168];
@@ -49,7 +79,8 @@ export default function BurnPage() {
   const [showPred, setShowPred] = useState(true);
   const [showTruth, setShowTruth] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
-  const truthLayer = useTintedMask(result?.truth?.mask_png_base64, TRUTH_RGB, 150);
+  const truthLayer = useTintedMask(result?.truth?.mask_png_base64, TRUTH_RGB, 60);
+  const labels = useMemo(() => sampleLabels(samples ?? []), [samples]);
 
   useEffect(() => {
     api.burnSamples()
@@ -118,7 +149,7 @@ export default function BurnPage() {
                   aria-pressed={s.id === selected}
                   className={`w-full rounded-lg px-2.5 py-2 text-left text-sm ${s.id === selected ? "bg-canopy-2" : "text-lichen hover:bg-canopy-2/60"}`}
                 >
-                  <span className="block font-medium text-paper">{s.id.replace(/^cabuar-/, "")}</span>
+                  <span className="block font-medium text-paper" title={s.id}>{labels.get(s.id)}</span>
                   <span className="tabular block text-xs">{fmt(s.burned_area_ha)} ha brûlés ({pct(s.burned_fraction)})</span>
                 </button>
               </li>
@@ -184,8 +215,8 @@ export default function BurnPage() {
             </label>
           )}
           <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-xs text-lichen" aria-label="Légende">
-            <li className="flex items-center gap-2"><span className="size-3 rounded-sm bg-[#ef4423]/80" /> Zone brûlée prédite</li>
-            <li className="flex items-center gap-2"><span className="size-3 rounded-sm bg-sage/70" /> Zone brûlée réelle (CAL FIRE)</li>
+            <li className="flex items-center gap-2"><span className="size-3 rounded-sm border-2 border-[#ef4423] bg-[#ef4423]/30" /> Zone brûlée prédite</li>
+            <li className="flex items-center gap-2"><span className="size-3 rounded-sm border-2 border-sage bg-sage/25" /> Zone brûlée réelle (CAL FIRE)</li>
           </ul>
         </div>
 
