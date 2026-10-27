@@ -137,3 +137,16 @@ docs/               cadrage, rapport
   Spreading From Remote-Sensing Data*, IEEE TGRS, 2022.
 - D. Rege Cambrin, L. Colomba, P. Garza, *CaBuAr: California Burned Areas dataset for
   delineation*, IEEE GRSM, 2023.
+
+## Cas d'étude tunisien : Melloula (Tabarka, juillet 2023)
+
+```bash
+pip install -r requirements/geo.txt
+make case-study
+```
+
+Le script cherche les images Sentinel-2 L2A les moins nuageuses avant et après les
+incendies de juillet 2023 (catalogue Earth Search, sans compte), repère la cicatrice par
+dNBR, découpe une fenêtre de 10 × 10 km et l'ajoute en tête des exemples de l'onglet
+*Surfaces brûlées*, où l'estimation du modèle est comparée aux ≈ 450 ha annoncés par
+l'arrondissement forestier de Tabarka. `--center lon,lat` impose la fenêtre.

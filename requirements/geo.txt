@@ -1,0 +1,3 @@
+# Cas d'étude réel (Sentinel-2) : python -m ml.burn_torch.fetch_s2
+rasterio>=1.3
+pystac-client>=0.8

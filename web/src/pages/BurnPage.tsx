@@ -53,11 +53,13 @@ function sampleLabels(samples: BurnSample[]): Map<string, string> {
   const letters = new Map<string, string>();
   const count = new Map<string, number>();
   for (const s of samples) {
+    if (s.label) continue;
     const f = fireOf(s);
     if (!letters.has(f)) letters.set(f, String.fromCharCode(65 + (letters.size % 26)));
     count.set(f, (count.get(f) ?? 0) + 1);
   }
   return new Map(samples.map((s) => {
+    if (s.label) return [s.id, s.label];
     const f = fireOf(s);
     const zone = s.id.match(/_(\d+)$/)?.[1];
     const base = `Incendie ${letters.get(f)}`;
@@ -118,6 +120,8 @@ export default function BurnPage() {
   const pre = png(result?.pre_rgb_png_base64);
   const post = png(result?.post_rgb_png_base64);
   const truth = result?.truth;
+  const sample = result?.sample;
+  const official = !truth && sample?.reference_ha ? sample.reference_ha : null;
   const areaError = truth ? Math.abs(result!.burned_area_ha - truth.burned_area_ha) / Math.max(truth.burned_area_ha, 1e-6) : null;
 
   return (
@@ -150,7 +154,11 @@ export default function BurnPage() {
                   className={`w-full rounded-lg px-2.5 py-2 text-left text-sm ${s.id === selected ? "bg-canopy-2" : "text-lichen hover:bg-canopy-2/60"}`}
                 >
                   <span className="block font-medium text-paper" title={s.id}>{labels.get(s.id)}</span>
-                  <span className="tabular block text-xs">{fmt(s.burned_area_ha)} ha brûlés ({pct(s.burned_fraction)})</span>
+                  <span className="tabular block text-xs">
+                    {s.reference_ha
+                      ? `≈ ${fmt(s.reference_ha)} ha annoncés · Tunisie`
+                      : `${fmt(s.burned_area_ha)} ha brûlés (${pct(s.burned_fraction ?? 0)})`}
+                  </span>
                 </button>
               </li>
             ))}
@@ -216,7 +224,7 @@ export default function BurnPage() {
           )}
           <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-xs text-lichen" aria-label="Légende">
             <li className="flex items-center gap-2"><span className="size-3 rounded-sm border-2 border-[#ef4423] bg-[#ef4423]/30" /> Zone brûlée prédite</li>
-            <li className="flex items-center gap-2"><span className="size-3 rounded-sm border-2 border-sage bg-sage/25" /> Zone brûlée réelle (CAL FIRE)</li>
+            {truth && <li className="flex items-center gap-2"><span className="size-3 rounded-sm border-2 border-sage bg-sage/25" /> Zone brûlée réelle (CAL FIRE)</li>}
           </ul>
         </div>
 
@@ -228,17 +236,42 @@ export default function BurnPage() {
                 {truth && <Metric label="Mesurée sur le terrain" value={`${fmt(truth.burned_area_ha)} ha`} tone="sage" />}
                 {areaError !== null && <Metric label="Écart de surface" value={pct(areaError, 1)} />}
                 {truth && <Metric label="IoU" value={pct(truth.iou)} hint={`précision ${pct(truth.precision)}, rappel ${pct(truth.recall)}`} />}
+                {official !== null && (
+                  <>
+                    <Metric label="Annoncée par les forêts" value={`≈ ${fmt(official)} ha`} tone="sage" />
+                    <Metric label="Écart au chiffre officiel"
+                      value={pct(Math.abs(result.burned_area_ha - official) / official, 0)} />
+                    {sample?.dnbr_area_ha !== undefined && (
+                      <Metric label="Seuillage dNBR (sans IA)" value={`${fmt(sample.dnbr_area_ha)} ha`} />
+                    )}
+                  </>
+                )}
               </dl>
             ) : busy ? <Loading /> : <p className="text-sm text-lichen">Choisissez une image.</p>}
           </Panel>
           <Panel title="Affichage">
             <Toggle checked={showPred} onChange={setShowPred}>Zone brûlée prédite</Toggle>
-            <Toggle checked={showTruth} onChange={setShowTruth}>Zone brûlée réelle</Toggle>
+            {truth && <Toggle checked={showTruth} onChange={setShowTruth}>Zone brûlée réelle</Toggle>}
           </Panel>
-          <p className="text-xs leading-relaxed text-moss">
-            Pour Melloula (juillet 2023), le même calcul sur des images Sentinel-2 de Tabarka
-            permettra de comparer l'estimation aux quelque 450 ha annoncés par les services forestiers.
-          </p>
+          {official !== null && sample ? (
+            <Panel title="Cas d'étude">
+              <p className="text-sm leading-relaxed">{sample.reference}</p>
+              <dl className="mt-3 grid grid-cols-2 gap-3 text-xs">
+                <div><dt className="text-lichen">Image avant</dt><dd className="tabular">{sample.pre_date}</dd></div>
+                <div><dt className="text-lichen">Image après</dt><dd className="tabular">{sample.post_date}</dd></div>
+              </dl>
+              <p className="mt-3 text-xs leading-relaxed text-moss">
+                Fenêtre de {fmt((sample.shape[0] * 20) / 1000, 1)} × {fmt((sample.shape[1] * 20) / 1000, 1)} km
+                placée automatiquement sur la plus forte baisse de végétation (dNBR). Le chiffre
+                officiel cumule plusieurs foyers : l'écart est indicatif. {sample.source}.
+              </p>
+            </Panel>
+          ) : (
+            <p className="text-xs leading-relaxed text-moss">
+              Choisissez « Melloula » pour voir le même calcul sur un incendie tunisien réel,
+              comparé aux quelque 450 ha annoncés par les services forestiers.
+            </p>
+          )}
         </div>
       </div>
     </div>

@@ -23,6 +23,9 @@ scenarios:  ## Scénarios de démo pour l'interface (depuis les vraies données 
 	$(PY) -m ml.spread_tf.export_scenarios --data-dir data/raw/ndws --out data/scenarios/spread/ndws_test.json
 	$(PY) -m ml.burn_torch.export_samples --h5 data/raw/cabuar/512x512.hdf5 --out data/scenarios/burn
 
+case-study:  ## Cas d'étude Melloula 2023 : vraies images Sentinel-2 (pip install -r requirements/geo.txt)
+	$(PY) -m ml.burn_torch.fetch_s2
+
 scenarios-synthetic: synthetic  ## Scénarios de démo synthétiques (sans télécharger les datasets)
 	$(PY) -m ml.spread_tf.export_scenarios --data-dir data/synthetic/ndws --source "Synthétique (démo)" --out data/scenarios/spread/synthetic.json
 	$(PY) -m ml.burn_torch.synthetic --out data/synthetic/cabuar_512.hdf5 --patches 15 --size 512
