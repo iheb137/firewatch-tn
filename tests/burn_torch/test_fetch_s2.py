@@ -91,3 +91,13 @@ def test_fetch_pipeline_on_local_rasters(tmp_path, monkeypatch, capsys):
     arr = np.load(out / "melloula-2023.npz")
     assert arr["pre"].shape == arr["post"].shape == (128, 128, 12)
     assert int(np.median(arr["pre"][..., 7])) == 3000  # décalage +1000 retiré
+
+
+def test_pick_scene_prefers_closest_date_among_clear_scenes():
+    class It:
+        def __init__(self, d):
+            self.datetime = dt.datetime(2023, 7, d)
+
+    scenes = [(1.0, It(1)), (0.99, It(7)), (0.60, It(10))]
+    assert f.pick_scene(scenes, "pre")[1].datetime.day == 7
+    assert f.pick_scene(scenes, "post")[1].datetime.day == 1

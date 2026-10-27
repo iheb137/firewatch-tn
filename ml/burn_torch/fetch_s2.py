@@ -52,7 +52,7 @@ PRESETS = {
         # Délégation de Tabarka, du littoral à la frontière algérienne.
         "bbox": (8.50, 36.78, 8.95, 36.99),
         "pre": "2023-06-10/2023-07-11",
-        "post": "2023-07-27/2023-08-25",
+        "post": "2023-07-29/2023-08-25",  # après la maîtrise des feux (fin juillet)
         "reference_ha": 450,
         "reference": "≈ 450 ha de pin maritime selon l'arrondissement forestier de Tabarka "
                      "(ensemble des foyers de Melloula et d'Aïn Sobh, juillet 2023)",
@@ -98,6 +98,17 @@ def best_window(score: np.ndarray, size: int) -> tuple[int, int, int]:
     sums = ii[sh:, sw:] - ii[:-sh, sw:] - ii[sh:, :-sw] + ii[:-sh, :-sw]
     r, c = np.unravel_index(int(np.argmax(sums)), sums.shape)
     return int(r), int(c), int(sums[r, c])
+
+
+def pick_scene(scored: list, when: str, tolerance: float = 0.03):
+    """Scène quasi aussi dégagée que la meilleure, la plus proche de l'incendie.
+
+    Plus l'écart de dates est court, moins la végétation change pour d'autres raisons
+    (sécheresse estivale, moissons) : le dNBR ne garde alors que le feu.
+    """
+    best = max(c for c, _ in scored)
+    ok = [(c, it) for c, it in scored if c >= best - tolerance]
+    return (max if when == "pre" else min)(ok, key=lambda c: c[1].datetime)
 
 
 def merge_index(index: dict, entry: dict) -> dict:
@@ -237,7 +248,7 @@ def main() -> None:
                     f"{valid:5.0%} couverte, {clear:5.0%} dégagée")
                 scored.setdefault(tile, {"pre": [], "post": []})[when].append((clear, it))
         tile, best = max(
-            ((t, {k: max(v[k], key=lambda c: c[0]) for k in v}) for t, v in scored.items()
+            ((t, {k: pick_scene(v[k], k) for k in v}) for t, v in scored.items()
              if v["pre"] and v["post"]),
             key=lambda tb: min(tb[1]["pre"][0], tb[1]["post"][0]))
         pre_it, post_it = best["pre"][1], best["post"][1]
@@ -248,8 +259,12 @@ def main() -> None:
 
         def bands(item, names, g):
             base, applied = _baseline(item)
-            return {n: (harmonize(read_band(item, n, g), base, applied) if not a.no_harmonize
-                        else read_band(item, n, g)) for n in names}
+            out = {}
+            for n in names:
+                log(f"    {item.datetime:%Y-%m-%d} {n} ({g.shape[0]} × {g.shape[1]} px)…")
+                raw = read_band(item, n, g)
+                out[n] = raw if a.no_harmonize else harmonize(raw, base, applied)
+            return out
 
         log("3/4 dNBR sur la zone et choix de la fenêtre")
         size = a.size
