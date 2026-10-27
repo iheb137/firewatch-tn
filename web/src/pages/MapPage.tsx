@@ -2,6 +2,7 @@ import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { Mountain } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { api } from "../api";
 import { ErrorNote, Toggle } from "../components/ui";
 
 // Fond sombre CARTO (sans clé) + relief AWS Terrain Tiles (Terrarium, sans clé).
@@ -78,6 +79,32 @@ export default function MapPage() {
            Incendies de Melloula et d'Aïn Sobh, juillet 2023 : environ 450 ha de pin maritime.
            <br/><span style="color:#9db3a3;font-size:12px">Repère placé sur la ville de Tabarka, position indicative.</span>`))
         .addTo(m);
+
+      // Cas d'étude Sentinel-2 installé : cadre de la fenêtre analysée et lien vers l'analyse.
+      api.burnSamples().then(({ samples }) => {
+        const cs = samples.find((s) => s.bounds && s.center);
+        if (!cs || !m.getStyle()) return;
+        const [w, so, e, n] = cs.bounds!;
+        m.addSource("case-study", {
+          type: "geojson",
+          data: { type: "Feature", properties: {}, geometry: { type: "Polygon",
+            coordinates: [[[w, so], [e, so], [e, n], [w, n], [w, so]]] } },
+        });
+        m.addLayer({ id: "case-study-fill", type: "fill", source: "case-study",
+                     paint: { "fill-color": "#f0954a", "fill-opacity": 0.12 } });
+        m.addLayer({ id: "case-study-line", type: "line", source: "case-study",
+                     paint: { "line-color": "#f0954a", "line-width": 2, "line-dasharray": [2, 1.5] } });
+        const box = document.createElement("div");
+        box.className = "rounded-md border border-ember bg-night/90 px-2 py-1 text-xs font-semibold text-paper";
+        box.textContent = "Zone analysée";
+        new maplibregl.Marker({ element: box, anchor: "bottom" })
+          .setLngLat([cs.center![0], n])
+          .setPopup(new maplibregl.Popup({ offset: 10, maxWidth: "260px" }).setHTML(
+            `<strong>${cs.label ?? cs.id}</strong><br/>
+             Images Sentinel-2 du ${cs.pre_date} et du ${cs.post_date}.<br/>
+             <a href="#/surfaces" style="color:#f0954a;font-weight:600">Mesurer la surface brûlée →</a>`))
+          .addTo(m);
+      }).catch(() => undefined);
     });
     return () => {
       m.remove();

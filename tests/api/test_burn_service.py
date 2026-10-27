@@ -53,3 +53,21 @@ def test_burn_segment_previews_and_truth(burn_client):
         assert len(body[k]) > 100
     assert body["truth"]["burned_area_ha"] == 32 * 64 * 0.04
     assert 0 <= body["truth"]["iou"] <= 1
+
+
+def test_overlay_fill_is_light_and_edges_opaque():
+    import base64
+    import io
+
+    from PIL import Image
+
+    mod = load_app("burn-service", "burn_main")
+    mask_edges, overlay_png_b64 = mod.mask_edges, mod.overlay_png_b64
+
+    mask = np.zeros((20, 20), bool)
+    mask[5:15, 5:15] = True
+    edges = mask_edges(mask, width=2)
+    assert edges[5, 10] and edges[6, 10] and not edges[7, 10] and not edges[0, 0]
+    prob = mask.astype(np.float32)
+    rgba = np.array(Image.open(io.BytesIO(base64.b64decode(overlay_png_b64(prob, 0.5)))))
+    assert rgba[5, 10, 3] == 255 and 0 < rgba[10, 10, 3] < 128 and rgba[0, 0, 3] == 0

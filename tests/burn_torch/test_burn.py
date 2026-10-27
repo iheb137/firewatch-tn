@@ -94,3 +94,11 @@ def test_burn_code_never_loads_tensorflow():
             "from ml.common.config import seed_everything; seed_everything(0); "
             "sys.exit(int('tensorflow' in sys.modules))")
     assert subprocess.run([sys.executable, "-c", code]).returncode == 0
+
+
+def test_export_samples_fire_id():
+    from ml.burn_torch.export_samples import fire_id
+
+    key = "edc26d10-4a59-495b-8176-543e46c5cfdd"
+    assert fire_id(f"{key}_4") == key
+    assert fire_id("uid10_0") == "uid10"

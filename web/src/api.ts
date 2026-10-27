@@ -31,9 +31,20 @@ export interface SpreadPrediction {
 export interface BurnSample {
   id: string;
   file: string;
-  burned_fraction: number;
+  fire?: string;
+  burned_fraction: number | null;
   burned_area_ha: number;
   shape: [number, number];
+  // Cas d'étude réel (sans vérité terrain pixel à pixel) : chiffre officiel et contexte.
+  label?: string;
+  reference_ha?: number;
+  reference?: string;
+  dnbr_area_ha?: number;
+  pre_date?: string;
+  post_date?: string;
+  center?: [number, number];
+  bounds?: [number, number, number, number];
+  source?: string;
 }
 
 export interface BurnResult {
