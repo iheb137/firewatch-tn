@@ -16,7 +16,7 @@ const TABARKA: [number, number] = [8.75801, 36.954423];
 const FACTS = [
   { value: "4,6 M ha", text: "de forêts, soit 34 % du territoire, surtout dans le Nord-Ouest et le Centre-Ouest." },
   { value: "88 feux", text: "et près de 3 000 ha brûlés entre le 1er juin et le 26 juillet 2022." },
-  { value: "≈ 450 ha", text: "de pin maritime perdus à Melloula (Tabarka) en juillet 2023, sous l'effet du sirocco." },
+  { value: "≈ 450 ha", text: "annoncés pendant les feux de Melloula (Tabarka), juillet 2023. La cicatrice finale mesurée par satellite est environ 3 fois plus grande." },
 ];
 
 export default function MapPage() {
@@ -94,16 +94,23 @@ export default function MapPage() {
                      paint: { "fill-color": "#f0954a", "fill-opacity": 0.12 } });
         m.addLayer({ id: "case-study-line", type: "line", source: "case-study",
                      paint: { "line-color": "#f0954a", "line-width": 2, "line-dasharray": [2, 1.5] } });
-        const box = document.createElement("div");
-        box.className = "rounded-md border border-ember bg-night/90 px-2 py-1 text-xs font-semibold text-paper";
-        box.textContent = "Zone analysée";
-        new maplibregl.Marker({ element: box, anchor: "bottom" })
+        const box = document.createElement("button");
+        box.type = "button";
+        box.className = "cursor-pointer rounded-md border border-ember bg-night/90 px-2 py-1 text-xs font-semibold text-paper hover:bg-canopy-2";
+        box.textContent = "Zone analysée : zoomer";
+        const popup = new maplibregl.Popup({ offset: 10, maxWidth: "260px" }).setHTML(
+          `<strong>${cs.label ?? cs.id}</strong><br/>
+           Images Sentinel-2 du ${cs.pre_date} et du ${cs.post_date}.<br/>
+           <a href="#/surfaces" style="color:#f0954a;font-weight:600">Mesurer la surface brûlée →</a>`);
+        const marker = new maplibregl.Marker({ element: box, anchor: "bottom" })
           .setLngLat([cs.center![0], n])
-          .setPopup(new maplibregl.Popup({ offset: 10, maxWidth: "260px" }).setHTML(
-            `<strong>${cs.label ?? cs.id}</strong><br/>
-             Images Sentinel-2 du ${cs.pre_date} et du ${cs.post_date}.<br/>
-             <a href="#/surfaces" style="color:#f0954a;font-weight:600">Mesurer la surface brûlée →</a>`))
           .addTo(m);
+        box.addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          m.fitBounds([[w, so], [e, n]], { padding: 120, pitch: 60, bearing: -20, duration: 2200 });
+          m.once("moveend", () => popup.setLngLat([cs.center![0], n]).addTo(m));
+        });
+        void marker;
       }).catch(() => undefined);
     });
     return () => {
