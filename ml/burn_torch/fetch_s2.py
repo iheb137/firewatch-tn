@@ -54,8 +54,10 @@ PRESETS = {
         "pre": "2023-06-10/2023-07-11",
         "post": "2023-07-29/2023-08-25",  # après la maîtrise des feux (fin juillet)
         "reference_ha": 450,
-        "reference": "≈ 450 ha de pin maritime selon l'arrondissement forestier de Tabarka "
-                     "(ensemble des foyers de Melloula et d'Aïn Sobh, juillet 2023)",
+        "reference": "Bilans provisoires annoncés pendant les feux : près de 500 ha le 20 juillet, "
+                     "≈ 450 à 470 ha de pin maritime le 25 juillet (forêt de Melloula). De "
+                     "nouveaux foyers ont repris les 24 et 25 juillet : l'image du 1er août "
+                     "montre la cicatrice finale.",
     },
 }
 

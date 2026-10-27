@@ -238,12 +238,12 @@ export default function BurnPage() {
                 {truth && <Metric label="IoU" value={pct(truth.iou)} hint={`précision ${pct(truth.precision)}, rappel ${pct(truth.recall)}`} />}
                 {official !== null && (
                   <>
-                    <Metric label="Annoncée par les forêts" value={`≈ ${fmt(official)} ha`} tone="sage" />
-                    <Metric label="Écart au chiffre officiel"
-                      value={pct(Math.abs(result.burned_area_ha - official) / official, 0)} />
                     {sample?.dnbr_area_ha !== undefined && (
-                      <Metric label="Seuillage dNBR (sans IA)" value={`${fmt(sample.dnbr_area_ha)} ha`} />
+                      <Metric label="Seuillage dNBR (sans IA)" value={`${fmt(sample.dnbr_area_ha)} ha`}
+                        hint={`écart IA / dNBR : ${pct(Math.abs(result.burned_area_ha - sample.dnbr_area_ha) / sample.dnbr_area_ha, 0)}`} />
                     )}
+                    <Metric label="Bilan officiel provisoire" value={`≈ ${fmt(official)} ha`} tone="sage"
+                      hint="annoncé pendant les feux" />
                   </>
                 )}
               </dl>
@@ -262,14 +262,15 @@ export default function BurnPage() {
               </dl>
               <p className="mt-3 text-xs leading-relaxed text-moss">
                 Fenêtre de {fmt((sample.shape[0] * 20) / 1000, 1)} × {fmt((sample.shape[1] * 20) / 1000, 1)} km
-                placée automatiquement sur la plus forte baisse de végétation (dNBR). Le chiffre
-                officiel cumule plusieurs foyers : l'écart est indicatif. {sample.source}.
+                placée automatiquement sur la plus forte baisse de végétation (dNBR). Sans vérité
+                terrain au pixel près, on compare l'IA à une méthode indépendante (dNBR) et au bilan
+                officiel. {sample.source}.
               </p>
             </Panel>
           ) : (
             <p className="text-xs leading-relaxed text-moss">
               Choisissez « Melloula » pour voir le même calcul sur un incendie tunisien réel,
-              comparé aux quelque 450 ha annoncés par les services forestiers.
+              comparé à une méthode indépendante et au bilan des services forestiers.
             </p>
           )}
         </div>
